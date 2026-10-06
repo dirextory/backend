@@ -23,4 +23,24 @@
     "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyIOgBkUbgdIw57-pSpBUuwBW6Z3im_THxhSoSILnZAMvqFsA2XEWgyjFUZVDy-f26f/exec",
     "tags": ["Games", "Browsers", "AI"]
   }
+  {
+  "id": "kite",
+  "name": "kite",
+  "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbzjyL2bkwnTaJscFGFMe-o_FUiiMvku_OtFMJJSxmB7zX5B7v_FZclnGWuDGU5qGOeh/exec",
+  "tags": [
+    "Browsers"
+  ],
+  "icon": "compass",
+  "color": "blue"
+}
+  {
+  "id": "peakmovies",
+  "name": "peakmovies",
+  "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbzmgcZrjb9nBzswMODQb9ZTj_sjzufJk_Y_2UNPOFv7a1wYlpuw2tuXOKYKqxvA3WaM/exec",
+  "tags": [
+    "Tools"
+  ],
+  "icon": "compass",
+  "color": "blue"
+}
 ]
