@@ -3,38 +3,49 @@
     "id": "astral",
     "name": "astral",
     "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbwUBZaMdCgDUEt9GA9dLiwD_RFP7-QB-JBuzOwjPjU6x1VibCtCZm4vST_P6qjKzFA4/exec",
-    "tags": ["Browsers", "Games", "AI"]
+    "tags": [
+      "Browsers",
+      "Games",
+      "AI"
+    ]
   },
   {
     "id": "dogeub",
     "name": "dogeub",
     "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbw-OY94152YFzIgu77pKYeZxS9Ax11IPBPz7hDJUGIOaplPeYO8g6rOzhJkllghstFE/exec",
-    "tags": ["Games", "Browsers"]
+    "tags": [
+      "Games",
+      "Browsers"
+    ]
   },
   {
     "id": "bull-33",
     "name": "bull-33",
     "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyIOgBkUbgdIw57-pSpBUuwBW6Z3im_THxhSoSILnZAMvqFsA2XEWgyjFUZVDy-f26f/exec",
-    "tags": ["Games", "Browsers", "AI"]
+    "tags": [
+      "Games",
+      "Browsers",
+      "AI"
+    ]
+  },
+  {
+    "id": "kite",
+    "name": "kite",
+    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbzjyL2bkwnTaJscFGFMe-o_FUiiMvku_OtFMJJSxmB7zX5B7v_FZclnGWuDGU5qGOeh/exec",
+    "tags": [
+      "Browsers"
+    ],
+    "icon": "compass",
+    "color": "blue"
+  },
+  {
+    "id": "peakmovies",
+    "name": "peakmovies",
+    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbzmgcZrjb9nBzswMODQb9ZTj_sjzufJk_Y_2UNPOFv7a1wYlpuw2tuXOKYKqxvA3WaM/exec",
+    "tags": [
+      "Tools"
+    ],
+    "icon": "compass",
+    "color": "blue"
   }
-  {
-  "id": "kite",
-  "name": "kite",
-  "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbzjyL2bkwnTaJscFGFMe-o_FUiiMvku_OtFMJJSxmB7zX5B7v_FZclnGWuDGU5qGOeh/exec",
-  "tags": [
-    "Browsers"
-  ],
-  "icon": "compass",
-  "color": "blue"
-}
-  {
-  "id": "peakmovies",
-  "name": "peakmovies",
-  "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbzmgcZrjb9nBzswMODQb9ZTj_sjzufJk_Y_2UNPOFv7a1wYlpuw2tuXOKYKqxvA3WaM/exec",
-  "tags": [
-    "Tools"
-  ],
-  "icon": "compass",
-  "color": "blue"
-}
 ]
