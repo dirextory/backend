@@ -1,39 +1,46 @@
+#!/usr/bin/env bash
 set -e
 
-# install Ollama
+echo "Installing Ollama..."
 curl -fsSL https://ollama.com/install.sh | sh
 
-# stop any old Ollama process
 pkill ollama 2>/dev/null || true
+pkill -f "crypted-ai/server.py" 2>/dev/null || true
 
-# allow the frontend backend to communicate with Ollama
 export OLLAMA_ORIGINS="*"
-
-# start ollama
-nohup env OLLAMA_ORIGINS="*" ollama serve > ~/ollama.log 2>&1 &
+nohup env OLLAMA_ORIGINS="*" ollama serve > "$HOME/ollama.log" 2>&1 &
 
 sleep 5
 
-# create project
-mkdir -p ~/crypted-ai/public
-cd ~/crypted-ai
+APP="$HOME/crypted-ai"
+mkdir -p "$APP/public"
+cd "$APP"
 
-# create backend
 cat > server.py <<'PY'
 import json
 import os
 import subprocess
 import urllib.request
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 OLLAMA = "http://127.0.0.1:11434"
 
-class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory="public", **kwargs)
 
-    def send_json(self, data, status=200):
-        body = json.dumps(data).encode()
+def post_ollama(path, payload):
+    request = urllib.request.Request(
+        OLLAMA + path,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    return urllib.request.urlopen(request, timeout=900)
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *_):
+        pass
+
+    def send_json(self, payload, status=200):
+        body = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -41,53 +48,49 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def read_json(self):
+    def read_body(self):
         length = int(self.headers.get("Content-Length", 0))
         return json.loads(self.rfile.read(length))
 
-    def do_POST(self):
-        if self.path == "/api/chat":
+    def stream_json_lines(self, path, payload):
+        try:
+            response = post_ollama(path, payload)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/x-ndjson")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            while True:
+                line = response.readline()
+                if not line:
+                    break
+                self.wfile.write(line)
+                self.wfile.flush()
+
+        except Exception as error:
             try:
-                data = self.read_json()
-                model = data["model"]
-                prompt = data["prompt"]
-
-                # Automatically downloads the selected model if necessary.
-                installed = subprocess.run(
-                    ["ollama", "list"],
-                    capture_output=True,
-                    text=True
-                ).stdout
-
-                if not any(line.startswith(model + " ") for line in installed.splitlines()):
-                    pull = subprocess.run(
-                        ["ollama", "pull", model],
-                        capture_output=True,
-                        text=True
-                    )
-
-                    if pull.returncode != 0:
-                        self.send_json({
-                            "error": "Could not install model.",
-                            "details": pull.stderr[-1000:]
-                        }, 500)
-                        return
-
-                request = urllib.request.Request(
-                    OLLAMA + "/api/generate",
-                    data=json.dumps({
-                        "model": model,
-                        "prompt": prompt,
-                        "stream": False
-                    }).encode(),
-                    headers={"Content-Type": "application/json"}
+                self.wfile.write(
+                    (json.dumps({"error": str(error)}) + "\n").encode()
                 )
+                self.wfile.flush()
+            except Exception:
+                pass
 
-                with urllib.request.urlopen(request, timeout=600) as response:
-                    result = json.loads(response.read())
+    def do_POST(self):
+        if self.path == "/api/generate":
+            try:
+                data = self.read_body()
+                self.stream_json_lines("/api/generate", data)
+            except Exception as error:
+                self.send_json({"error": str(error)}, 500)
+            return
 
-                self.send_json({"response": result.get("response", "")})
-
+        if self.path == "/api/pull":
+            try:
+                data = self.read_body()
+                self.stream_json_lines("/api/pull", data)
             except Exception as error:
                 self.send_json({"error": str(error)}, 500)
             return
@@ -95,12 +98,12 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json({"error": "Not found"}, 404)
 
     def do_GET(self):
-        if self.path == "/api/status":
+        if self.path == "/api/models":
             try:
                 result = subprocess.run(
                     ["ollama", "list"],
                     capture_output=True,
-                    text=True
+                    text=True,
                 )
                 models = []
 
@@ -114,19 +117,45 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json({"error": str(error)}, 500)
             return
 
-        super().do_GET()
+        if self.path == "/api/health":
+            self.send_json({"ok": True})
+            return
 
-print("crypted AI running at http://localhost:8000")
-HTTPServer(("0.0.0.0", 8000), Handler).serve_forever()
+        if self.path == "/" or self.path == "/index.html":
+            filename = "public/index.html"
+        else:
+            filename = "public" + self.path
+
+        if not os.path.isfile(filename):
+            self.send_json({"error": "Not found"}, 404)
+            return
+
+        content_type = "text/html; charset=utf-8"
+        if filename.endswith(".css"):
+            content_type = "text/css"
+        elif filename.endswith(".js"):
+            content_type = "text/javascript"
+
+        with open(filename, "rb") as file:
+            content = file.read()
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
+
+print("crypted AI is running on port 8000")
+ThreadingHTTPServer(("0.0.0.0", 8000), Handler).serve_forever()
 PY
 
-# create frontend
 cat > public/index.html <<'HTML'
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#080808">
   <title>crypted AI</title>
 
@@ -134,236 +163,368 @@ cat > public/index.html <<'HTML'
     :root {
       color-scheme: dark;
       --bg: #080808;
-      --panel: rgba(20, 20, 20, .78);
-      --panel-strong: #191919;
-      --line: rgba(255,255,255,.13);
-      --muted: #8b8b8b;
-      --text: #f4f4f4;
-      --accent: #fff;
+      --surface: rgba(20,20,20,.86);
+      --surface-2: #1d1d1d;
+      --line: rgba(255,255,255,.14);
+      --text: #f5f5f5;
+      --muted: #929292;
+      --white: #fff;
+      --radius: 12px;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     html, body {
+      width: 100%;
+      height: 100%;
       margin: 0;
-      min-height: 100%;
     }
 
     body {
-      min-height: 100vh;
       overflow: hidden;
       background:
-        radial-gradient(circle at 50% -20%, #303030 0, transparent 38%),
+        radial-gradient(circle at 50% -20%, #343434, transparent 42%),
         var(--bg);
       color: var(--text);
       font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+
+    button, textarea, select {
+      font: inherit;
+    }
+
+    button, select {
+      cursor: pointer;
     }
 
     #snow {
       position: fixed;
       inset: 0;
       z-index: -1;
-      opacity: .72;
+      pointer-events: none;
     }
 
-    .shell {
-      width: min(100% - 28px, 940px);
-      min-height: 100vh;
-      margin: auto;
+    .app {
+      width: 100%;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
-      padding: 28px 0 20px;
     }
 
     header {
+      height: 64px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 20px;
-      padding: 4px 2px 24px;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(8,8,8,.65);
+      backdrop-filter: blur(14px);
     }
 
     .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .mark {
-      width: 34px;
-      height: 34px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: linear-gradient(145deg, #fff, #777);
-      color: #111;
-      font-weight: 900;
-    }
-
-    .brand-name {
+      font-size: 1.05rem;
       font-weight: 800;
       letter-spacing: -.04em;
     }
 
-    .brand-subtitle {
-      margin-top: 2px;
+    .brand span {
       color: var(--muted);
-      font-size: .72rem;
+      font-weight: 500;
     }
 
-    .status {
-      color: #aaa;
-      font-size: .72rem;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-    }
-
-    .status::before {
-      content: "";
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      margin-right: 8px;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 0 12px #fff;
-    }
-
-    .chat {
-      flex: 1;
-      min-height: 0;
+    .header-actions {
       display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      background: var(--panel);
-      box-shadow: 0 24px 80px rgba(0,0,0,.3);
-      backdrop-filter: blur(18px);
+      align-items: center;
+      gap: 8px;
     }
 
-    .messages {
+    .header-button {
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: .75rem;
+    }
+
+    .header-button:hover {
+      color: var(--text);
+      border-color: #777;
+    }
+
+    #messages {
       flex: 1;
+      width: min(100%, 920px);
+      margin: 0 auto;
+      padding: 42px 24px 32px;
       overflow-y: auto;
-      padding: clamp(22px, 5vw, 52px);
+      overscroll-behavior: contain;
+      scrollbar-color: #555 transparent;
     }
 
     .welcome {
-      max-width: 610px;
-      margin: 5vh auto;
+      max-width: 620px;
+      margin: 13vh auto 0;
       text-align: center;
     }
 
     .welcome h1 {
       margin: 0;
-      font-size: clamp(2.4rem, 7vw, 5rem);
-      line-height: .95;
-      letter-spacing: -.08em;
+      font-size: clamp(2.7rem, 9vw, 6rem);
+      line-height: .9;
+      letter-spacing: -.09em;
     }
 
     .welcome p {
-      margin: 18px auto 0;
-      max-width: 430px;
+      margin: 22px auto;
+      max-width: 470px;
       color: var(--muted);
       line-height: 1.6;
     }
 
     .message {
-      width: fit-content;
-      max-width: min(82%, 680px);
+      max-width: 82%;
       margin: 0 0 18px;
-      padding: 14px 17px;
+      padding: 13px 16px;
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 15px;
+      background: var(--surface-2);
       line-height: 1.6;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
 
-    .user {
+    .message.user {
       margin-left: auto;
-      border-color: #fff;
-      background: #f4f4f4;
+      background: var(--white);
       color: #111;
+      border-color: var(--white);
     }
 
-    .assistant {
-      background: var(--panel-strong);
+    .message.error {
+      border-color: #8c5555;
+      color: #ffbaba;
+    }
+
+    .message pre {
+      margin: 12px 0 2px;
+      padding: 13px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #0a0a0a;
+      color: #eee;
+      white-space: pre;
+      font: .84rem/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .message code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #333;
+      font: .9em ui-monospace, monospace;
+    }
+
+    .message pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    .attachment {
+      display: block;
+      margin-bottom: 9px;
+      color: #777;
+      font-size: .75rem;
+    }
+
+    .composer-wrap {
+      width: min(100%, 920px);
+      margin: 0 auto;
+      padding: 10px 24px 18px;
+    }
+
+    .progress {
+      display: none;
+      height: 28px;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: .75rem;
+    }
+
+    .progress.visible {
+      display: flex;
+    }
+
+    progress {
+      width: 180px;
+      height: 5px;
+      accent-color: white;
     }
 
     .composer {
       display: flex;
-      gap: 10px;
-      padding: 16px;
-      border-top: 1px solid var(--line);
-    }
-
-    select, textarea, button {
-      font: inherit;
-    }
-
-    select {
-      max-width: 190px;
-      padding: 0 12px;
+      align-items: center;
+      gap: 7px;
+      padding: 7px;
       border: 1px solid var(--line);
-      border-radius: 12px;
-      outline: none;
-      background: #111;
-      color: var(--text);
+      border-radius: 14px;
+      background: var(--surface);
+      backdrop-filter: blur(16px);
     }
 
     textarea {
       flex: 1;
-      min-height: 50px;
-      max-height: 150px;
-      resize: vertical;
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 13px;
-      outline: none;
-      background: #0c0c0c;
-      color: var(--text);
-    }
-
-    textarea:focus, select:focus {
-      border-color: #fff;
-      box-shadow: 0 0 0 3px rgba(255,255,255,.1);
-    }
-
-    button {
-      min-width: 80px;
+      min-width: 0;
+      height: 30px;
+      max-height: 130px;
+      resize: none;
+      padding: 5px 7px;
       border: 0;
-      border-radius: 13px;
-      background: #fff;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      line-height: 20px;
+    }
+
+    textarea::placeholder {
+      color: #777;
+    }
+
+    select, .icon-button, .send-button {
+      height: 32px;
+      border-radius: 8px;
+    }
+
+    select {
+      max-width: 155px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      outline: 0;
+      background: #111;
+      color: var(--text);
+      font-size: .75rem;
+    }
+
+    .icon-button {
+      width: 34px;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: #bbb;
+      font-size: 1rem;
+    }
+
+    .icon-button:hover {
+      color: white;
+      border-color: #777;
+    }
+
+    .send-button {
+      padding: 0 13px;
+      border: 0;
+      background: white;
       color: #111;
+      font-size: .78rem;
       font-weight: 800;
-      cursor: pointer;
-      transition: transform .18s, opacity .18s;
     }
 
-    button:hover { transform: translateY(-2px); }
-    button:disabled { opacity: .45; cursor: wait; }
-
-    footer {
-      padding-top: 16px;
-      color: #666;
-      font-size: .72rem;
-      text-align: center;
+    button:disabled {
+      opacity: .45;
+      cursor: wait;
     }
 
-    @media (max-width: 620px) {
-      .shell { padding-top: 16px; }
-      .status { display: none; }
-      .composer { flex-wrap: wrap; }
-      select { order: 2; flex: 1; max-width: none; height: 48px; }
-      textarea { order: 1; flex-basis: 70%; }
-      button { order: 1; }
-      .message { max-width: 92%; }
+    .file-name {
+      max-width: 200px;
+      margin: 5px 2px 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: .7rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    dialog {
+      width: min(420px, calc(100% - 32px));
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #181818;
+      color: var(--text);
+      box-shadow: 0 25px 100px #000;
+    }
+
+    dialog::backdrop {
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(5px);
+    }
+
+    dialog h2 {
+      margin: 0 0 10px;
+      letter-spacing: -.04em;
+    }
+
+    dialog p {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .dialog-close {
+      width: 100%;
+      height: 38px;
+      margin-top: 10px;
+      border: 0;
+      border-radius: 9px;
+      background: white;
+      color: #111;
+      font-weight: 700;
+    }
+
+    @media (max-width: 650px) {
+      header {
+        padding: 0 14px;
+      }
+
+      #messages {
+        padding: 28px 14px 20px;
+      }
+
+      .composer-wrap {
+        padding: 8px 10px 12px;
+      }
+
+      .composer {
+        flex-wrap: wrap;
+      }
+
+      textarea {
+        order: 1;
+        flex-basis: calc(100% - 43px);
+      }
+
+      .icon-button {
+        order: 1;
+      }
+
+      select {
+        order: 2;
+        flex: 1;
+        max-width: none;
+      }
+
+      .send-button {
+        order: 2;
+      }
+
+      .message {
+        max-width: 94%;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
-        scroll-behavior: auto !important;
+        animation: none !important;
         transition: none !important;
       }
     }
@@ -373,123 +534,331 @@ cat > public/index.html <<'HTML'
 <body>
   <canvas id="snow" aria-hidden="true"></canvas>
 
-  <main class="shell">
+  <div class="app">
     <header>
-      <div class="brand">
-        <div class="mark">C</div>
-        <div>
-          <div class="brand-name">crypted AI</div>
-          <div class="brand-subtitle">private local intelligence</div>
-        </div>
+      <div class="brand">crypted <span>AI</span></div>
+      <div class="header-actions">
+        <button class="header-button" id="privacy-button">Privacy</button>
+        <button class="header-button" id="clear-button">Clear chat</button>
       </div>
-      <div class="status">local server</div>
     </header>
 
-    <section class="chat">
-      <div class="messages" id="messages">
-        <div class="welcome" id="welcome">
-          <h1>Think locally.</h1>
-          <p>Select any model below. If it is not installed, crypted AI will download it automatically when you send your first message.</p>
-        </div>
+    <main id="messages" aria-live="polite">
+      <section class="welcome" id="welcome">
+        <h1>think privately.</h1>
+        <p>
+          Choose a model and start a conversation. Your chat data is not saved
+          by crypted AI.
+        </p>
+      </section>
+    </main>
+
+    <div class="composer-wrap">
+      <div class="progress" id="progress">
+        <span id="progress-label">Downloading model…</span>
+        <progress id="progress-bar" max="100" value="0"></progress>
       </div>
 
       <form class="composer" id="form">
-        <select id="model" aria-label="Choose an Ollama model">
+        <select id="model" aria-label="Choose model">
           <option value="llama3.2:3b">Llama 3.2 · 3B</option>
           <option value="qwen2.5:3b">Qwen 2.5 · 3B</option>
           <option value="gemma3:4b">Gemma 3 · 4B</option>
           <option value="mistral:7b">Mistral · 7B</option>
-          <option value="phi3:mini">Phi-3 Mini</option>
+          <option value="phi3:mini">Phi 3 Mini</option>
           <option value="deepseek-r1:7b">DeepSeek R1 · 7B</option>
+          <option value="llava:7b">Llava · Vision</option>
         </select>
 
-        <textarea id="prompt" placeholder="Ask crypted AI anything..." required></textarea>
-        <button id="send" type="submit">Send</button>
-      </form>
-    </section>
+        <input id="file" type="file" hidden accept="image/*,.txt,.md,.js,.py,.html,.css,.json,.csv">
+        <button class="icon-button" id="file-button" type="button" title="Attach file">＋</button>
 
-    <footer>Models run locally through Ollama</footer>
-  </main>
+        <textarea id="prompt" rows="1" placeholder="Message crypted AI…" required></textarea>
+        <button class="send-button" id="send" type="submit">Send</button>
+      </form>
+
+      <div class="file-name" id="file-name"></div>
+    </div>
+  </div>
+
+  <dialog id="privacy-dialog">
+    <h2>Your data stays yours.</h2>
+    <p>
+      crypted AI does not save your conversations or uploaded files.
+      Requests are processed by Ollama running in this environment.
+      Clearing or closing the page removes the visible chat.
+    </p>
+    <button class="dialog-close" id="dialog-close">Continue</button>
+  </dialog>
 
   <script>
     const messages = document.querySelector("#messages");
     const welcome = document.querySelector("#welcome");
     const form = document.querySelector("#form");
-    const prompt = document.querySelector("#prompt");
-    const model = document.querySelector("#model");
-    const send = document.querySelector("#send");
+    const promptBox = document.querySelector("#prompt");
+    const modelBox = document.querySelector("#model");
+    const sendButton = document.querySelector("#send");
+    const fileInput = document.querySelector("#file");
+    const fileButton = document.querySelector("#file-button");
+    const fileName = document.querySelector("#file-name");
+    const progress = document.querySelector("#progress");
+    const progressBar = document.querySelector("#progress-bar");
+    const progressLabel = document.querySelector("#progress-label");
+    const privacyDialog = document.querySelector("#privacy-dialog");
 
-    function addMessage(text, type) {
+    let selectedFile = null;
+
+    function addMessage(text, type, attachment = "") {
       welcome?.remove();
-      const element = document.createElement("div");
+
+      const element = document.createElement("article");
       element.className = `message ${type}`;
-      element.textContent = text;
+
+      if (attachment) {
+        const attachmentElement = document.createElement("span");
+        attachmentElement.className = "attachment";
+        attachmentElement.textContent = attachment;
+        element.appendChild(attachmentElement);
+      }
+
+      const content = document.createElement("div");
+      content.className = "content";
+      content.textContent = text;
+      element.appendChild(content);
+
       messages.appendChild(element);
       messages.scrollTop = messages.scrollHeight;
-      return element;
+      return content;
     }
+
+    function renderMarkdown(text) {
+      const escaped = text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+
+      const blocks = [];
+      const withoutBlocks = escaped.replace(
+        /```(\w*)\n?([\s\S]*?)```/g,
+        (_, language, code) => {
+          const index = blocks.length;
+          blocks.push(
+            `<pre><code class="language-${language || "text"}">${code.trim()}</code></pre>`
+          );
+          return `@@CODE${index}@@`;
+        }
+      );
+
+      return withoutBlocks
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br>")
+        .replace(/@@CODE(\d+)@@/g, (_, index) => blocks[index]);
+    }
+
+    function showProgress(label, value = 0) {
+      progress.classList.add("visible");
+      progressLabel.textContent = label;
+      progressBar.value = value;
+    }
+
+    function hideProgress() {
+      progress.classList.remove("visible");
+    }
+
+    async function readStream(response, onLine) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (line.trim()) onLine(JSON.parse(line));
+        }
+      }
+    }
+
+    async function installModel(model) {
+      showProgress(`Downloading ${model}…`, 0);
+
+      const response = await fetch("/api/pull", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, stream: true })
+      });
+
+      if (!response.ok) throw new Error("Could not download the model.");
+
+      await readStream(response, data => {
+        if (data.error) throw new Error(data.error);
+
+        const percent = data.total
+          ? Math.round((data.completed / data.total) * 100)
+          : 0;
+
+        showProgress(data.status || `Downloading ${model}…`, percent);
+      });
+
+      hideProgress();
+    }
+
+    async function generate(model, prompt, output) {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt,
+          stream: true
+        })
+      });
+
+      if (!response.ok) throw new Error("Generation failed.");
+
+      let answer = "";
+
+      await readStream(response, data => {
+        if (data.error) throw new Error(data.error);
+        answer += data.response || "";
+        output.innerHTML = renderMarkdown(answer);
+        messages.scrollTop = messages.scrollHeight;
+      });
+    }
+
+    fileButton.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", () => {
+      selectedFile = fileInput.files[0] || null;
+      fileName.textContent = selectedFile
+        ? `Attached: ${selectedFile.name}`
+        : "";
+    });
 
     form.addEventListener("submit", async event => {
       event.preventDefault();
 
-      const text = prompt.value.trim();
-      if (!text) return;
+      const text = promptBox.value.trim();
+      if (!text && !selectedFile) return;
 
-      addMessage(text, "user");
-      prompt.value = "";
-      send.disabled = true;
+      const model = modelBox.value;
+      const file = selectedFile;
+      const attachment = file ? `Attached: ${file.name}` : "";
 
-      const reply = addMessage(
-        `Loading ${model.value}. First use may download the model...`,
-        "assistant"
-      );
+      addMessage(text || "Please inspect this file.", "user", attachment);
+      promptBox.value = "";
+      promptBox.style.height = "30px";
+      selectedFile = null;
+      fileInput.value = "";
+      fileName.textContent = "";
+      sendButton.disabled = true;
+
+      const output = addMessage(`Preparing ${model}…`, "assistant");
 
       try {
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: model.value,
-            prompt: text
-          })
-        });
+        // Text files are included in the prompt.
+        let finalPrompt = text;
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Request failed");
+        if (file && !file.type.startsWith("image/")) {
+          const fileText = await file.text();
+          finalPrompt += `\n\nFile: ${file.name}\n\`\`\`\n${fileText}\n\`\`\``;
+        }
 
-        reply.textContent = data.response;
+        // Ollama vision models can receive images through its native API,
+        // but this simple text proxy displays the upload and sends the text.
+        if (file && file.type.startsWith("image/")) {
+          finalPrompt += `\n\nThe user attached an image named ${file.name}.`;
+        }
+
+        try {
+          await installModel(model);
+        } catch (error) {
+          // Pulling an already-installed model can return a harmless error.
+          if (!String(error.message).toLowerCase().includes("already")) {
+            throw error;
+          }
+        }
+
+        output.textContent = "";
+        await generate(model, finalPrompt, output);
       } catch (error) {
-        reply.textContent = `Error: ${error.message}`;
+        output.className = "content";
+        output.parentElement.classList.add("error");
+        output.textContent = error.message;
       } finally {
-        send.disabled = false;
-        prompt.focus();
+        sendButton.disabled = false;
+        promptBox.focus();
       }
     });
 
-    // Monochrome snow background
+    promptBox.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    promptBox.addEventListener("input", () => {
+      promptBox.style.height = "30px";
+      promptBox.style.height = `${Math.min(promptBox.scrollHeight, 130)}px`;
+    });
+
+    document.querySelector("#clear-button").addEventListener("click", () => {
+      messages.innerHTML = "";
+      messages.appendChild(welcome);
+      welcome.style.display = "block";
+    });
+
+    document.querySelector("#privacy-button").addEventListener("click", () => {
+      privacyDialog.showModal();
+    });
+
+    document.querySelector("#dialog-close").addEventListener("click", () => {
+      privacyDialog.close();
+    });
+
+    if (!localStorage.getItem("crypted-ai-privacy-seen")) {
+      privacyDialog.showModal();
+      localStorage.setItem("crypted-ai-privacy-seen", "1");
+    }
+
+    // Snow background.
     const canvas = document.querySelector("#snow");
     const ctx = canvas.getContext("2d");
     let flakes = [];
 
-    function resize() {
-      canvas.width = innerWidth * devicePixelRatio;
-      canvas.height = innerHeight * devicePixelRatio;
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-      flakes = Array.from({ length: Math.min(100, innerWidth / 10) }, () => ({
-        x: Math.random() * innerWidth,
-        y: Math.random() * innerHeight,
-        r: Math.random() * 2 + .5,
-        v: Math.random() * .55 + .2,
-        drift: (Math.random() - .5) * .25
-      }));
+    function resizeSnow() {
+      const ratio = devicePixelRatio || 1;
+      canvas.width = innerWidth * ratio;
+      canvas.height = innerHeight * ratio;
+      canvas.style.width = `${innerWidth}px`;
+      canvas.style.height = `${innerHeight}px`;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+      flakes = Array.from(
+        { length: Math.min(120, Math.floor(innerWidth / 8)) },
+        () => ({
+          x: Math.random() * innerWidth,
+          y: Math.random() * innerHeight,
+          r: Math.random() * 2 + .4,
+          speed: Math.random() * .55 + .2,
+          drift: (Math.random() - .5) * .25
+        })
+      );
     }
 
-    function snow() {
+    function animateSnow() {
       ctx.clearRect(0, 0, innerWidth, innerHeight);
-      ctx.fillStyle = "rgba(255,255,255,.65)";
+      ctx.fillStyle = "rgba(255,255,255,.6)";
 
       for (const flake of flakes) {
-        flake.y += flake.v;
+        flake.y += flake.speed;
         flake.x += flake.drift;
 
         if (flake.y > innerHeight + 5) {
@@ -502,19 +871,19 @@ cat > public/index.html <<'HTML'
         ctx.fill();
       }
 
-      requestAnimationFrame(snow);
+      requestAnimationFrame(animateSnow);
     }
 
-    addEventListener("resize", resize);
-    resize();
-    snow();
+    addEventListener("resize", resizeSnow);
+    resizeSnow();
+    animateSnow();
   </script>
 </body>
 </html>
 HTML
 
-# start server
-cd ~/crypted-ai
+echo "starting crypted AI..."
+cd "$APP"
 nohup python3 server.py > server.log 2>&1 &
 
 echo
