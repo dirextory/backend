@@ -1,38 +1,50 @@
-[
-  {
-    "name": "aether (working version)",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbw6wMLJ5jrdPP-hDPKgxzxUeU2ChflOJJkj-3VDtCEiF-fmEMRbP3ytrdUm8ehvlarM/exec"
-  },
-  {
-    "name": "nebula",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyj8KTnQoRo6yA7fJ3T6tbQGtV6QLxPjYYSmAAq4HcWgIAd9roVxKR9-zydpjrFSnfV/exec"
-  },
-  {
-    "name": "refract",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyPdx3eBdXQ8EfhQ9pHP7WVjVFpgKBJXPzoheIR6HVjl9JsDBvs__dcNObwwg3q_OlR/exec"
-  },
-  {
-    "name": "rook",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyblS2TdIp81rACgu2tA3OH4bB9zx18JGgsp5Cga7BKDnsHa4Ppa9CA8GUMUjAZOwc/exec"
-  },
-  {
-    "name": "serum 50% unblocked",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbx4aay_vZ7XR7qM1PXRVH6rN1rWZEjvk3KmNfp8udvG2A2kYytE3n4e8qeypz6x5aSV/exec"
-  },
-  {
-    "name": "tung",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbwO21zhooyynGwKMiZsPb-GqEtrbAuwoouRuUHccyJ8JbScQJ75vnFO0bY2IdjCAi8g/exec"
-  },
-  {
-    "name": "monoxide",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbxAjjyqZRpzjPPutX2l3SiJKH5xo_C49l3fsNP4bSEZQESc3lyyBWXWVbZGI4goiyWc/exec"
-  },
-  {
-    "name": "dogeub",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyYOfZYtMp6_BM9_w_lPcCtW037hg_NfdHe-ILyO8RdODhpSVhW4dA_KJAYwkjoo7HO/exec"
-  },
-  {
-    "name": "fern",
-    "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbzL-VDUKoW18QhEDrOmyzP4duGHFr7qwluBhUtD7gQmV3jtW0CQ5W26xmpF_3U-ZxAq/exec"
-  }
-]
+{
+  "browsers": [
+    {
+      "name": "aether (working version)",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbw6wMLJ5jrdPP-hDPKgxzxUeU2ChflOJJkj-3VDtCEiF-fmEMRbP3ytrdUm8ehvlarM/exec"
+    },
+    {
+      "name": "nebula",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyj8KTnQoRo6yA7fJ3T6tbQGtV6QLxPjYYSmAAq4HcWgIAd9roVxKR9-zydpjrFSnfV/exec"
+    },
+    {
+      "name": "refract",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyPdx3eBdXQ8EfhQ9pHP7WVjVFpgKBJXPzoheIR6HVjl9JsDBvs__dcNObwwg3q_OlR/exec"
+    },
+    {
+      "name": "rook",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyblS2TdIp81rACgu2tA3OH4bB9zx18JGgsp5Cga7BKDnsHa4Ppa9CA8GUMUjAZOwc/exec"
+    },
+    {
+      "name": "serum 50% unblocked",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbx4aay_vZ7XR7qM1PXRVH6rN1rWZEjvk3KmNfp8udvG2A2kYytE3n4e8qeypz6x5aSV/exec"
+    },
+    {
+      "name": "tung",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbwO21zhooyynGwKMiZsPb-GqEtrbAuwoouRuUHccyJ8JbScQJ75vnFO0bY2IdjCAi8g/exec"
+    },
+    {
+      "name": "monoxide",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbxAjjyqZRpzjPPutX2l3SiJKH5xo_C49l3fsNP4bSEZQESc3lyyBWXWVbZGI4goiyWc/exec"
+    },
+    {
+      "name": "dogeub",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbyYOfZYtMp6_BM9_w_lPcCtW037hg_NfdHe-ILyO8RdODhpSVhW4dA_KJAYwkjoo7HO/exec"
+    },
+    {
+      "name": "fern",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbzL-VDUKoW18QhEDrOmyzP4duGHFr7qwluBhUtD7gQmV3jtW0CQ5W26xmpF_3U-ZxAq/exec"
+    }
+  ],
+  "games": [
+    {
+      "name": "orbtutoring",
+      "url": "https://test.orbtutoring.com"
+    },
+    {
+      "name": "duckmath 50% unblocked",
+      "url": "https://script.google.com/a/macros/fcpsschools.net/s/AKfycbxz9fmahVbuLlI-jII_HsIt9fes5Hx1GfZ73C9M9cP9hHztwUben1uJ_muPeclGdF7Z/exec"
+    }
+  ]
+}
