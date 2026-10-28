@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relic - v1.0.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            overflow-x: auto;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 25px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .tab-button:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            background: white;
+        }
+
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .link-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .link-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .link-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .link-name {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .link-url {
+            color: #495057;
+            font-size: 0.9em;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+        }
+
+        .info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info-box h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            color: #856404;
+        }
+
+        .info-box li {
+            margin: 8px 0;
+        }
+
+        .leaderboard-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .leaderboard-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .rank {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-right: 20px;
+            min-width: 50px;
+        }
+
+        .leaderboard-info {
+            flex: 1;
+        }
+
+        .leaderboard-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+
+        .leaderboard-url {
+            color: #6c757d;
+            font-size: 0.9em;
+            font-family: 'Courier New', monospace;
+        }
+
+        .note {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            color: #0c5460;
+            font-style: italic;
+        }
+
+        footer {
+            background: #343a40;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .link-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            header h1 {
+                font-size: 1.8em;
+            }
+            
+            .tab-button {
+                padding: 12px 15px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Welcome!</h1>
+            <p>v1.0.0</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab(event, 'proxies')">Proxies</button>
+            <button class="tab-button" onclick="openTab(event, 'games')">Games</button>
+            <button class="tab-button" onclick="openTab(event, 'extras')">Extras</button>
+            <button class="tab-button" onclick="openTab(event, 'leaderboard')">Leaderboard</button>
+            <button class="tab-button" onclick="openTab(event, 'bypass')">Bypass Guide</button>
+        </div>
+
+        <!-- Proxies Tab -->
+        <div id="proxies" class="tab-content active">
+            <h2 class="section-title">Proxies</h2>
+            <div class="link-grid">
+                <div class="link-card">
+                    <div class="link-name">mizu</div>
+                    <div class="link-url">huh.beamschoolsofeducation.cfd/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">potatoland</div>
+                    <div class="link-url">cnspipe.org</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">bull</div>
+                    <div class="link-url">https://s3.amazonaws.com/bullpxbk/index.svg</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">mossie</div>
+                    <div class="link-url">mossiegoat.b-cdn.net/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">cherri</div>
+                    <div class="link-url">https://cdn.jsdelivr.net/gh/cherriunblocked/svg@main/index.svg</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">rook</div>
+                    <div class="link-url">s3.amazonaws.com/rooklearn/index.svg</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">serum</div>
+                    <div class="link-url">s3.amazonaws.com/studypad/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">rosin</div>
+                    <div class="link-url">concertante.org/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">tung</div>
+                    <div class="link-url">djz51oelf1hfk.cloudfront.net/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">nebulo</div>
+                    <div class="link-url">nebulo-student-portal.100-p.ru</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">cherri</div>
+                    <div class="link-url">objectstorage.(shortened)/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">night-x</div>
+                    <div class="link-url">storage.googleapis.com/atlas-coursework-6p8x/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">arctic</div>
+                    <div class="link-url">share.htmlput.com/p/7o9hcsiopd</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">monoxide</div>
+                    <div class="link-url">sciencekids.online/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">night-x</div>
+                    <div class="link-url">storage.googleapis.com/ap-calc-ab/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">dogeub</div>
+                    <div class="link-url">storage.googleapis.com/dogeub/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">desync</div>
+                    <div class="link-url">s3.amazonaws.com/math/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">mossie</div>
+                    <div class="link-url">ancient-hieroglyphics.b-cdn.net/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">monoxide</div>
+                    <div class="link-url">figurebloxtrust.b-cdn.net/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">rosin</div>
+                    <div class="link-url">nubana.cfd/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">fern v2</div>
+                    <div class="link-url">s3.dualstack.us-east-1.amazonaws.com/ferndc/math.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">tung</div>
+                    <div class="link-url">s3.amazonaws.com/tungnotes/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">rosin</div>
+                    <div class="link-url">communitycollegesinusa.com/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">night-x</div>
+                    <div class="link-url">storage.googleapis.com/ap-calc-bc/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">unblockedzone</div>
+                    <div class="link-url">https://htmlhoster.com/p/4Z815908/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">selenite</div>
+                    <div class="link-url">gospel.newcovenant-teaching.org/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">night-x</div>
+                    <div class="link-url">cdn.jsdelivr.net/gh/nighttime-wiki/umbrel-drift@main/index.svg</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">mossie</div>
+                    <div class="link-url">insects-metamorphosis.b-cdn.net/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">fern v2</div>
+                    <div class="link-url">s3.us-east-1.amazonaws.com/ferndc/index.svg</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">dogeub</div>
+                    <div class="link-url">storage.googleapis.com/educationate/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">cherri</div>
+                    <div class="link-url">scholarpathmath.store/</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">aether</div>
+                    <div class="link-url">aetherbeta.storage.googleapis.com/study.html</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Games Tab -->
+        <div id="games" class="tab-content">
+            <h2 class="section-title">Games</h2>
+            <div class="link-grid">
+                <div class="link-card">
+                    <div class="link-name">orbtutoring</div>
+                    <div class="link-url">test.orbtutoring.com</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">edurocks</div>
+                    <div class="link-url">storage.googleapis.com/edurpu/index.html</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">duckmath</div>
+                    <div class="link-url">storage.googleapis.com/mathlessons/duckmath.svg</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">gn-math</div>
+                    <div class="link-url">cdn.jsdelivr.net/npm/fairvieweducation/index.svg</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">duckmath</div>
+                    <div class="link-url">amaravanieducation.org/.well-known/(shortened).svg</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Extras Tab -->
+        <div id="extras" class="tab-content">
+            <h2 class="section-title">Extras</h2>
+            <div class="link-grid">
+                <div class="link-card">
+                    <div class="link-name">DarkNUX</div>
+                    <div class="link-url">cdn.jsdelivr.net/gh/Aglet-0/svgbulk-v7eet8@main/DarkNUX-1-p49a.svg</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-name">actual 2016-2021 roblox</div>
+                    <div class="link-url">http://sciencekids.online/ronoxide</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard Tab -->
+        <div id="leaderboard" class="tab-content">
+            <h2 class="section-title">Leaderboard</h2>
+            <div class="leaderboard-item">
+                <div class="rank">#1</div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">refract</div>
+                    <div class="leaderboard-url">s3.us-east-2.amazonaws.com/mellowmeadow43/index.html</div>
+                </div>
+            </div>
+            <div class="leaderboard-item">
+                <div class="rank">#2</div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">nebula</div>
+                    <div class="leaderboard-url">s3.amazonaws.com/nebulathebest/dashboard.html</div>
+                </div>
+            </div>
+            <div class="leaderboard-item">
+                <div class="rank">#3</div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">abstract</div>
+                    <div class="leaderboard-url">https://commonsensehealthcare.org/iwannacrackaero</div>
+                </div>
+            </div>
+            <div class="note">
+                wanna have smth else on the leaderboard? well its my leaderboard so piss off
+            </div>
+        </div>
+
+        <!-- Bypass Guide Tab -->
+        <div id="bypass" class="tab-content">
+            <h2 class="section-title">Bypass Lightspeed's Auto Website Blocking</h2>
+            <div class="info-box">
+                <h3>Note:</h3>
+                <p>This is only for people creating proxies. If your proxy link is getting blocked and you didn't make it, you'll have to use a different proxy.</p>
+            </div>
+            <ol style="margin-left: 20px; line-height: 2;">
+                <li>Obfuscate all of your scrāmjet code, wìsp code, bāre-mǔx code, and/or ŬV code.</li>
+                <li>Don't mention wìsp, scrāmjet, bāre-mǔx, or ŬV in your source code, frontend and backend.</li>
+            </ol>
+            <div class="note" style="margin-top: 20px;">
+                Note: if you're using scrāmjet, you could possibly use a scrāmjet fork like Scārlets. I don't know much about it though.
+            </div>
+            <div class="note">
+                also thanks for telling me this nebula &lt;3
+            </div>
+            <div class="note">
+                w lucas?<br>
+                not larping tech for once 🥹
+            </div>
+            <div class="info-box">
+                <h3>these may not work</h3>
+                <p>i cant test em myself cus my chromebook's still held hostage… shame</p>
+                <p>if you test it use lightspeed preferrably</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2026 Relic v1.0.0 | Created by LifeNock</p>
+        </footer>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            // Hide all tab contents
+            var tabContents = document.getElementsByClassName("tab-content");
+            for (var i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove("active");
+            }
+
+            // Remove active class from all tab buttons
+            var tabButtons = document.getElementsByClassName("tab-button");
+            for (var i = 0; i < tabButtons.length; i++) {
+                tabButtons[i].classList.remove("active");
+            }
+
+            // Show the current tab and add active class to the button
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+        }
+    </script>
+</body>
+</html>
